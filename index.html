@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TravelCents - Currency Converter Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" id="themeToggle">
+      <svg
+        id="sunIcon"
+        width="20"
+        height="20"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+      >
+        <path
+          d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+        />
+      </svg>
+      <svg
+        id="moonIcon"
+        width="20"
+        height="20"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+        style="display: none"
+      >
+        <path
+          d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
+        />
+      </svg>
+    </div>
+
+    <div class="container">
+      <!-- Header -->
+      <header class="text-center py-8">
+        <h1
+          class="text-4xl font-bold mb-2 flex items-center justify-center gap-3"
+        >
+          <span class="globe-icon">🌍</span>
+          TravelCents - Currency Converter Challenge
+        </h1>
+        <p class="text-lg" style="color: var(--text-secondary)">
+          Prepare for your next trip. Test your currency conversion skills!
+        </p>
+      </header>
+
+      <!-- Main Game Card -->
+      <div id="setupView" class="card max-w-2xl mx-auto fade-in">
+        <div class="space-y-6">
+          <!-- Current Rates Display -->
+          <div
+            id="ratesDisplay"
+            class="text-center p-4 rounded-lg"
+            style="background: var(--bg-secondary); display: none"
+          >
+            <p class="text-sm mb-2" style="color: var(--text-secondary)">
+              Current Exchange Rate
+            </p>
+            <p id="rateText" class="text-lg font-semibold"></p>
+            <p
+              id="reverseRateText"
+              class="text-sm mt-1"
+              style="color: var(--text-secondary); display: none"
+            ></p>
+          </div>
+
+<!-- Currency Selection -->
+<div class="grid md:grid-cols-2 gap-4">
+  <div>
+    <label class="block mb-2 font-semibold"
+      >✈️ Destination Currency</label
+    >
+    <div class="currency-select">
+      <button class="currency-button" id="baseCurrencyBtn">
+        <span id="baseDisplay">Select Currency</span>
+        <span>▼</span>
+      </button>
+      <div class="currency-dropdown" id="baseDropdown">
+        <input
+          type="text"
+          id="baseSearch"
+          placeholder="Search..."
+          style="
+            width: calc(100% - 2rem);
+            margin: 0.5rem 1rem;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+          "
+        />
+        <div id="baseOptions"></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <label class="block mb-2 font-semibold">🏠 Home Currency</label>
+    <div class="currency-select">
+      <button class="currency-button" id="targetCurrencyBtn">
+        <span id="targetDisplay">Select Currency</span>
+        <span>▼</span>
+      </button>
+      <div class="currency-dropdown" id="targetDropdown">
+        <input
+          type="text"
+          id="targetSearch"
+          placeholder="Search..."
+          style="
+            width: calc(100% - 2rem);
+            margin: 0.5rem 1rem;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+          "
+        />
+        <div id="targetOptions"></div>
+      </div>
+    </div>
+  </div>
+</div>
+          <!-- Game Settings -->
+          <div class="space-y-4">
+            <div>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="reverseMode" class="w-5 h-5" />
+                <span class="font-semibold"
+                  >Enable reverse mode (bidirectional practice)</span
+                >
+              </label>
+            </div>
+            <div>
+              <label class="block mb-2 font-semibold">Game Duration</label>
+              <div class="flex gap-3 items-center">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  id="freePlayBtn"
+                  style="padding: 0.75rem 1rem"
+                >
+                  Free Play
+                </button>
+                <input
+                  type="number"
+                  id="timerInput"
+                  class="flex-1 p-3 border-2 rounded-lg"
+                  style="
+                    border-color: var(--border-color);
+                    background: var(--bg-secondary);
+                    color: var(--text-primary);
+                  "
+                  value="30"
+                  min="5"
+                  max="300"
+                  step="5"
+                />
+                <span
+                  class="text-sm whitespace-nowrap"
+                  style="color: var(--text-secondary)"
+                  >seconds</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex gap-3">
+            <button class="btn btn-primary flex-1" id="startBtn" disabled>
+              Start Game
+            </button>
+            <button class="btn btn-secondary" id="statsBtn">
+              📊 Statistics
+            </button>
+            <button class="btn btn-secondary" id="aboutBtn">ℹ️ About</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game View -->
+      <div
+        id="gameView"
+        class="card max-w-2xl mx-auto fade-in"
+        style="display: none"
+      >
+        <div class="space-y-6">
+          <!-- Timer -->
+          <div class="text-center" id="timerContainer">
+            <div
+              class="inline-block px-6 py-3 rounded-full"
+              style="background: var(--bg-secondary)"
+            >
+              <span class="text-2xl font-bold" id="timerDisplay">30</span>
+              <span class="text-sm ml-2" style="color: var(--text-secondary)"
+                >seconds</span
+              >
+            </div>
+          </div>
+
+          <!-- Question -->
+          <div
+            class="text-center p-8 rounded-lg"
+            style="background: var(--bg-secondary)"
+          >
+            <p class="text-sm mb-4" style="color: var(--text-secondary)">
+              Convert this amount:
+            </p>
+            <p id="questionText" class="text-3xl font-bold mb-4"></p>
+            <p class="text-sm" style="color: var(--text-secondary)">
+              Enter your answer below
+            </p>
+          </div>
+
+          <!-- Answer Input -->
+          <div>
+            <input
+              type="number"
+              id="answerInput"
+              placeholder="Enter amount..."
+              step="0.01"
+            />
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3">
+            <button class="btn btn-primary flex-1" id="submitBtn" disabled>
+              Submit Answer
+            </button>
+            <button class="btn btn-secondary" id="showRatesBtn">
+              💱 Rates
+            </button>
+            <button class="btn btn-secondary" id="stopBtn">Stop Game</button>
+          </div>
+
+          <!-- Score -->
+          <div class="text-center">
+            <p style="color: var(--text-secondary)">
+              Questions Answered:
+              <span id="questionCount" class="font-bold">0</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results View -->
+      <div
+        id="resultsView"
+        class="space-y-6 max-w-4xl mx-auto fade-in"
+        style="display: none"
+      >
+        <div class="card">
+          <h2 class="text-2xl font-bold mb-6 text-center">Game Results</h2>
+
+          <!-- Summary Stats -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div
+              class="text-center p-4 rounded-lg"
+              style="background: var(--bg-secondary)"
+            >
+              <p class="text-2xl font-bold" id="finalAccuracy">0%</p>
+              <p class="text-sm" style="color: var(--text-secondary)">
+                Accuracy
+              </p>
+            </div>
+            <div
+              class="text-center p-4 rounded-lg"
+              style="background: var(--bg-secondary)"
+            >
+              <p class="text-2xl font-bold" id="finalQuestions">0</p>
+              <p class="text-sm" style="color: var(--text-secondary)">
+                Questions
+              </p>
+            </div>
+            <div
+              class="text-center p-4 rounded-lg"
+              style="background: var(--bg-secondary)"
+            >
+              <p class="text-2xl font-bold" id="finalTime">0s</p>
+              <p class="text-sm" style="color: var(--text-secondary)">Time</p>
+            </div>
+            <div
+              class="text-center p-4 rounded-lg"
+              style="background: var(--bg-secondary)"
+            >
+              <p class="text-2xl font-bold" id="finalRank">-</p>
+              <p class="text-sm" style="color: var(--text-secondary)">Rank</p>
+            </div>
+          </div>
+
+          <!-- Performance Chart -->
+          <div class="mb-6">
+            <h3 class="font-semibold mb-3">Accuracy Per Question</h3>
+            <canvas id="resultsChart"></canvas>
+          </div>
+
+          <!-- Detailed Results Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full" id="resultsTable">
+              <thead>
+                <tr style="background: var(--bg-secondary)">
+                  <th class="p-3 text-left">#</th>
+                  <th class="p-3 text-left">Question</th>
+                  <th class="p-3 text-right">Your Answer</th>
+                  <th class="p-3 text-right">Correct</th>
+                  <th class="p-3 text-center">Accuracy</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 mt-6">
+            <button class="btn btn-primary flex-1" id="playAgainBtn">
+              Play Again
+            </button>
+            <button class="btn btn-secondary" id="viewStatsBtn">
+              View Statistics
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer
+      class="text-center py-8 mt-12"
+      style="color: var(--text-secondary); font-size: 0.875rem"
+    >
+      <p class="mb-2">Data saved locally in your browser</p>
+      <p class="mb-2">
+        Made by
+        <a
+          href="https://kylescheer.com"
+          target="_blank"
+          style="color: var(--accent); text-decoration: underline"
+          >Kyle Scheer</a
+        >
+      </p>
+      <p class="mb-3">
+        <a
+          href="https://www.github.com/kyletscheer/travel-cents"
+          target="_blank"
+          style="color: var(--accent); text-decoration: underline"
+          >View Code on Github</a
+        >
+      </p>
+      <a
+        href="https://ko-fi.com/scheerapps"
+        target="_blank"
+        rel="noopener"
+        title="Support me on Ko-fi"
+      >
+        <img
+          height="36"
+          style="border: 0px; height: 36px; display: inline-block"
+          src="https://storage.ko-fi.com/cdn/kofi5.png?v=6"
+          border="0"
+          alt="Buy Me a Coffee at ko-fi.com"
+        />
+      </a>
+    </footer>
+
+    <!-- Statistics Modal -->
+    <div class="modal" id="statsModal">
+      <div class="modal-content">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Your Statistics</h2>
+            <button class="text-2xl" id="closeStatsBtn">&times;</button>
+          </div>
+
+          <div id="statsContent">
+            <p class="text-center" style="color: var(--text-secondary)">
+              No games played yet. Start playing to see your statistics!
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal" id="aboutModal">
+      <div class="modal-content">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">About This Game</h2>
+            <button class="text-2xl" id="closeAboutBtn">&times;</button>
+          </div>
+
+          <div class="space-y-4" style="color: var(--text-secondary)">
+            <p>
+              Welcome to the Currency Conversion Challenge! Test and improve
+              your mental currency conversion skills.
+            </p>
+
+            <div>
+              <h3 class="font-semibold mb-2" style="color: var(--text-primary)">
+                How to Play:
+              </h3>
+              <ol class="list-decimal list-inside space-y-1">
+                <li>Select your home and destination currencies</li>
+                <li>Choose timed mode or free play</li>
+                <li>Convert amounts as quickly and accurately as possible</li>
+                <li>Review your performance and track progress over time</li>
+              </ol>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-2" style="color: var(--text-primary)">
+                Ranking System:
+              </h3>
+              <ul class="space-y-1">
+                <li>💎 Diamond: 98-100%</li>
+                <li>🏆 Platinum: 95-97%</li>
+                <li>🥇 Gold: 90-94%</li>
+                <li>🥈 Silver: 80-89%</li>
+                <li>🥉 Bronze: Below 80%</li>
+              </ul>
+            </div>
+
+            <p class="text-sm">
+              Perfect for travelers and finance enthusiasts! All data is stored
+              locally on your device.
+            </p>
+
+            <p class="text-sm">
+              Exchange rates provided by
+              <a
+                href="https://www.exchangerate-api.com"
+                target="_blank"
+                class="underline"
+                style="color: var(--accent)"
+                >ExchangeRate-API</a
+              >
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rates Modal -->
+    <div class="modal" id="ratesModal">
+      <div class="modal-content">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Current Exchange Rates</h2>
+            <button class="text-2xl" id="closeRatesBtn">&times;</button>
+          </div>
+
+          <div id="ratesModalContent" class="space-y-3"></div>
+        </div>
+      </div>
+    </div>
+<script src="currencyData.js"></script>
+    <script src="script.js"></script>
+
+  </body>
+</html>
