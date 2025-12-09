@@ -10,6 +10,7 @@ let gameState = {
   results: [],
   exchangeRates: null,
   gameStartTime: null,
+  gameMode: null,
 };
 
 // Initialize
@@ -18,7 +19,10 @@ document.addEventListener("DOMContentLoaded", () => {
   initCurrencyDropdowns();
   initEventListeners();
   loadStatistics();
+  checkStartButton();
 });
+
+let isPrevAnswerWidgetVisible = false;
 
 // Theme management
 function initTheme() {
@@ -45,14 +49,15 @@ document.getElementById("themeToggle").addEventListener("click", () => {
 document.getElementById("freePlayBtn").addEventListener("click", () => {
   const input = document.getElementById("timerInput");
   const btn = document.getElementById("freePlayBtn");
-
   if (input.disabled) {
     // Re-enable timer
     input.disabled = false;
+
     input.value = 30;
     btn.style.background = "var(--bg-secondary)";
     btn.style.color = "var(--text-primary)";
     gameState.timerDuration = 30;
+    gameState.gameMode = "timed";
   } else {
     // Enable free play
     input.disabled = true;
@@ -60,8 +65,40 @@ document.getElementById("freePlayBtn").addEventListener("click", () => {
     btn.style.background = "var(--accent)";
     btn.style.color = "white";
     gameState.timerDuration = 0;
+    gameState.gameMode = "free";
   }
 });
+
+// Input letter and symbol restriction for timer input
+const timerInput = document.getElementById("timerInput");
+
+timerInput.addEventListener("input", (e) => {
+  // Remove any non-digit characters but keep existing numbers
+e.target.value = e.target.value.replace(/\D/g, "");
+
+  // Update game state
+  gameState.timerDuration = parseInt(e.target.value) || 0;
+});
+
+//Input letter and symbol restriction for answer input
+const answerInput = document.getElementById("answerInput");
+
+answerInput.addEventListener("input", (e) => {
+  // Allow only digits and at most one decimal point
+  e.target.value = e.target.value
+    .replace(/[^0-9.]/g, "") // remove all non-digit/non-dot
+.replace(/(\..*)\./g, "$1"); // allow only one decimal point
+  // Enable/disable submit button
+  document.getElementById("submitBtn").disabled = !e.target.value.trim();
+});
+
+// Handle Enter key
+answerInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter" && !document.getElementById("submitBtn").disabled) {
+    submitAnswer();
+  }
+});
+
 // Currency dropdowns
 function initCurrencyDropdowns() {
   const currencies = Object.keys(currencyData);
@@ -377,7 +414,7 @@ function startGame() {
   document.getElementById("questionCount").textContent = "0";
 
   // Hide or show timer based on free play mode
-  if (gameState.timerDuration === 0) {
+  if (gameState.gameMode === "free") {
     document.getElementById("timerContainer").style.display = "none";
   } else {
     document.getElementById("timerContainer").style.display = "block";
@@ -391,17 +428,122 @@ function startTimer() {
   updateTimerDisplay();
 
   gameState.timerInterval = setInterval(() => {
-    gameState.timeRemaining -= 5;
+    gameState.timeRemaining -= 1;
     updateTimerDisplay();
 
     if (gameState.timeRemaining <= 0) {
       endGame();
     }
-  }, 5000);
+  }, 1000);
+}
+
+function updatePreviousAnswerWidget() {
+  const widget = document.getElementById("previousAnswerWidget");
+  
+  // Show widget only if results exist and the toggle is ON
+  if (gameState.results.length === 0 || !isPrevAnswerWidgetVisible) {
+    widget.style.display = 'none';
+    return;
+  }
+  
+  widget.style.display = 'block';
+  
+  // Get the last submitted result
+  const lastResult = gameState.results[gameState.results.length - 1];
+  
+  // 1. Determine Color and Translucent Background Color
+  let accuracyColor;
+  let backgroundColor;
+
+if (lastResult.accuracy >= 95) {
+    accuracyColor = 'green';
+    backgroundColor = 'rgba(0, 128, 0, 0.2)'; 
+  } else if (lastResult.accuracy >= 85) {
+    accuracyColor = 'orange';
+    backgroundColor = 'rgba(255, 165, 0, 0.2)';
+  } else {
+    accuracyColor = 'red';
+    backgroundColor = 'rgba(255, 0, 0, 0.2)';
+  }
+
+widget.style.backgroundColor = backgroundColor;
+
+  document.getElementById("prevAnswerPrompt").textContent = lastResult.question;
+  document.getElementById("prevAnswerUser").textContent = lastResult.userAnswer.toFixed(2);
+  document.getElementById("prevAnswerCorrect").textContent = lastResult.correctAnswer.toFixed(2);
+  document.getElementById("prevAnswerAccuracy").innerHTML = `<span style="font-weight: bold; color: ${accuracyColor}">${lastResult.accuracy.toFixed(1)}%</span>`;
+}
+
+function togglePreviousAnswerWidget() {
+  // Toggle the global state
+  isPrevAnswerWidgetVisible = !isPrevAnswerWidgetVisible;
+  
+  // Immediately update the widget display
+  updatePreviousAnswerWidget();
 }
 
 function updateTimerDisplay() {
   document.getElementById("timerDisplay").textContent = gameState.timeRemaining;
+}
+
+/**
+ * 1. Generates two independent, standard normally distributed random numbers
+ * using the Box-Muller transform. We only need one for the Log-Normal function.
+ */
+function boxMullerTransform() {
+  let u1 = Math.random();
+  let u2 = Math.random();
+
+  // Calculate z0, the standard normally distributed random number (mean=0, stdev=1)
+  const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+
+  // We can return z0, or an object/array of both z0 and z1 if needed.
+  return z0;
+}
+
+/**
+ * 2. Generates a USD equivalent value between $0.50 and $500
+ * using a Log-Normal distribution, heavily favoring smaller values.
+ */
+function logNormalUSDAmount() {
+  const minAmount = 0.5;
+  const maxAmount = 500.0;
+
+  // Parameters from the SwiftUI example
+  const meanLog = 2.0; // ln(Median ≈ 7.4)
+  const sigma = 1.0;
+
+  // Generate standard normal sample (z)
+  const standardNormalSample = boxMullerTransform();
+
+  // Scale and shift z to get a normally distributed value X ~ N(meanLog, sigma^2)
+  const normalSample = standardNormalSample * sigma + meanLog;
+
+  // Apply the Log-Normal transformation: Y = e^X
+  let amount = Math.exp(normalSample);
+
+  // Clamp to desired range: min(maxAmount, max(minAmount, amount))
+  return Math.min(maxAmount, Math.max(minAmount, amount));
+}
+
+/**
+ * 3. Rounds the number to a "sensible" amount based on its magnitude,
+ * based on the rounding logic provided in the SwiftUI example.
+ */
+function roundToSensibleNumber(number) {
+  if (number < 1.0) {
+    return Math.round(number * 100) / 100.0; // Nearest cent
+  } else if (number <= 20.0) {
+    return Math.round(number * 10) / 10.0; // Nearest 10 cents
+  } else if (number < 100.0) {
+    return Math.round(number); // Nearest whole number
+  } else if (number < 1000.0) {
+    return Math.round(number / 10.0) * 10.0; // Nearest 10 units
+  } else if (number < 10000.0) {
+    return Math.round(number / 100.0) * 100.0; // Nearest 100 units
+  } else {
+    return Math.round(number / 1000.0) * 1000.0; // Nearest 1000 units
+  }
 }
 
 async function generateQuestion() {
@@ -419,11 +561,23 @@ async function generateQuestion() {
     );
     const data = await response.json();
     const rate = data.rates[toCurrency];
-    const baseToUsdRate = data.rates["USD"];
+    const baseToUsdRate = data.rates["USD"]; // X BaseCurrency = 1 USD
 
-    // Generate amount scaled to $1-$100 USD equivalent
-    const scaledAmount = Math.floor(Math.random() * 100) + 1;
-    const amount = Math.round(scaledAmount / baseToUsdRate);
+    // --- NEW LOGIC START ---
+
+    // 1. Generate the Log-Normal USD equivalent value
+    const usdEquivalentAmount = logNormalUSDAmount();
+
+    // 2. Convert the USD equivalent to the 'fromCurrency' amount.
+    // baseToUsdRate is (USD per 1 FROM_CURRENCY).
+    // Amount in FROM_CURRENCY = USD_EQUIVALENT / baseToUsdRate
+    const finalPromptAmount = usdEquivalentAmount / baseToUsdRate;
+
+    // 3. Apply sensible rounding to the 'fromCurrency' amount
+    const amount = roundToSensibleNumber(finalPromptAmount);
+
+    // --- NEW LOGIC END ---
+
     const correctAnswer = (amount * rate).toFixed(2);
 
     gameState.currentQuestion = {
@@ -469,6 +623,8 @@ function submitAnswer() {
   document.getElementById("questionCount").textContent =
     gameState.results.length;
   generateQuestion();
+
+  updatePreviousAnswerWidget();
 }
 
 function stopGame() {
@@ -519,7 +675,11 @@ function displayResults(early) {
   document.getElementById("finalAccuracy").textContent =
     avgAccuracy.toFixed(1) + "%";
   document.getElementById("finalQuestions").textContent = totalQuestions;
-  document.getElementById("finalTime").textContent = timeUsed + "s";
+  if (gameState.gameMode === "free") {
+    document.getElementById("finalTime").textContent = "Free Play";
+  } else {
+    document.getElementById("finalTime").textContent = timeUsed + "s";
+  }
   document.getElementById("finalRank").textContent = getRankBadge(avgAccuracy);
 
   // Results table
@@ -664,6 +824,7 @@ function saveGameToHistory() {
     accuracy: avgAccuracy,
     duration: timeUsed,
     isFreePlay: gameState.timerDuration === 0,
+    reverseMode: gameState.reverseMode || false,
     results: gameState.results,
   };
 
@@ -707,98 +868,95 @@ function displayStatistics(history) {
     (g.accuracy || 0) > (best.accuracy || 0) ? g : best
   );
 
-  // Recent 10 games for chart
   const recentGames = history.slice(-10);
 
+  // Build the HTML
   content.innerHTML = `
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div class="text-center p-4 rounded-lg" style="background: var(--bg-secondary);">
-                        <p class="text-2xl font-bold">${totalGames}</p>
-                        <p class="text-sm" style="color: var(--text-secondary);">Games Played</p>
-                    </div>
-                    <div class="text-center p-4 rounded-lg" style="background: var(--bg-secondary);">
-                        <p class="text-2xl font-bold">${avgAccuracy.toFixed(
-                          1
-                        )}%</p>
-                        <p class="text-sm" style="color: var(--text-secondary);">Avg Accuracy</p>
-                    </div>
-                    <div class="text-center p-4 rounded-lg" style="background: var(--bg-secondary);">
-                        <p class="text-2xl font-bold">${totalQuestions}</p>
-                        <p class="text-sm" style="color: var(--text-secondary);">Total Questions</p>
-                    </div>
-                    <div class="text-center p-4 rounded-lg" style="background: var(--bg-secondary);">
-                        <p class="text-2xl font-bold">${bestGame.accuracy.toFixed(
-                          1
-                        )}%</p>
-                        <p class="text-sm" style="color: var(--text-secondary);">Best Score</p>
-                    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="text-center p-4 rounded-lg" style="background: var(--bg-secondary);">
+        <p class="text-2xl font-bold">${totalGames}</p>
+        <p class="text-sm" style="color: var(--text-secondary);">Games Played</p>
+      </div>
+      <div class="text-center p-4 rounded-lg" style="background: var(--bg-secondary);">
+        <p class="text-2xl font-bold">${avgAccuracy.toFixed(1)}%</p>
+        <p class="text-sm" style="color: var(--text-secondary);">Avg Accuracy</p>
+      </div>
+      <div class="text-center p-4 rounded-lg" style="background: var(--bg-secondary);">
+        <p class="text-2xl font-bold">${totalQuestions}</p>
+        <p class="text-sm" style="color: var(--text-secondary);">Total Questions</p>
+      </div>
+      <div class="text-center p-4 rounded-lg" style="background: var(--bg-secondary);">
+        <p class="text-2xl font-bold">${bestGame.accuracy.toFixed(1)}%</p>
+        <p class="text-sm" style="color: var(--text-secondary);">Best Score</p>
+      </div>
+    </div>
+    
+    <div class="mb-6">
+      <h3 class="font-semibold mb-3">Recent Performance (Last 10 Games)</h3>
+      <canvas id="statsChart"></canvas>
+    </div>
+    
+    <div>
+      <h3 class="font-semibold mb-3">Recent Games</h3>
+      <div class="space-y-2" style="max-height: 300px; overflow-y: auto;">
+        ${recentGames
+          .slice()
+          .reverse()
+          .map((game, index) => {
+            const date = new Date(game.date).toLocaleDateString();
+            const time = new Date(game.date).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            const baseData = currencyData[game.baseCurrency] || { flag: "" };
+            const targetData = currencyData[game.targetCurrency] || { flag: "" };
+            return `
+              <div 
+                class="p-3 rounded-lg cursor-pointer hover:bg-slate-300 recent-game" 
+                style="background: var(--bg-secondary);"
+                data-index="${history.length - 1 - index}"
+              >
+                <div class="flex justify-between items-center">
+                  <div>
+                    <span style="font-size: 1.2rem;">${baseData.flag}</span>
+                    <span class="font-semibold">${game.baseCurrency} ${
+                      game.reverseMode ? "↔️" : "➡️"
+                    } ${game.targetCurrency}</span>
+                    <span style="font-size: 1.2rem;">${targetData.flag}</span>
+                    <span class="text-sm ml-2" style="color: var(--text-secondary);">${date} ${time}</span>
+                    ${
+                      game.isFreePlay
+                        ? '<span class="text-sm ml-2" style="color: var(--accent);">Free Play</span>'
+                        : ""
+                    }
+                  </div>
+                  <div class="text-right">
+                    <span class="stat-badge ${getBadgeClass(game.accuracy || 0)}">${(
+              game.accuracy || 0
+            ).toFixed(1)}%</span>
+                    <span class="text-sm block" style="color: var(--text-secondary);">${game.questionsAnswered} questions</span>
+                  </div>
                 </div>
-                
-                <div class="mb-6">
-                    <h3 class="font-semibold mb-3">Recent Performance (Last 10 Games)</h3>
-                    <canvas id="statsChart"></canvas>
-                </div>
-                
-                <div>
-                    <h3 class="font-semibold mb-3">Recent Games</h3>
-                    <div class="space-y-2" style="max-height: 300px; overflow-y: auto;">
-                        ${history
-                          .slice(-10)
-                          .reverse()
-                          .map((game) => {
-                            const date = new Date(
-                              game.date
-                            ).toLocaleDateString();
-                            const time = new Date(game.date).toLocaleTimeString(
-                              [],
-                              { hour: "2-digit", minute: "2-digit" }
-                            );
-                            const baseData = currencyData[
-                              game.baseCurrency
-                            ] || { flag: "" };
-                            const targetData = currencyData[
-                              game.targetCurrency
-                            ] || { flag: "" };
-                            return `
-                                <div class="p-3 rounded-lg" style="background: var(--bg-secondary);">
-                                    <div class="flex justify-between items-center">
-                                        <div>
-                                            <span style="font-size: 1.2rem;">${
-                                              baseData.flag
-                                            }</span>
-                                            <span class="font-semibold">${
-                                              game.baseCurrency
-                                            } → ${game.targetCurrency}</span>
-                                            <span style="font-size: 1.2rem;">${
-                                              targetData.flag
-                                            }</span>
-                                            <span class="text-sm ml-2" style="color: var(--text-secondary);">${date} ${time}</span>
-                                            ${
-                                              game.isFreePlay
-                                                ? '<span class="text-sm ml-2" style="color: var(--accent);">Free Play</span>'
-                                                : ""
-                                            }
-                                        </div>
-                                        <div class="text-right">
-<span class="stat-badge ${getBadgeClass(game.accuracy || 0)}">${(
-                              game.accuracy || 0
-                            ).toFixed(1)}%</span>
-                                            <span class="text-sm block" style="color: var(--text-secondary);">${
-                                              game.questionsAnswered
-                                            } questions</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                          })
-                          .join("")}
-                    </div>
-                </div>
-                
-                <div class="mt-6 text-center">
-                    <button class="btn btn-secondary" onclick="clearHistory()">Clear All History</button>
-                </div>
+              </div>
             `;
+          })
+          .join("")}
+      </div>
+    </div>
+    
+    <div class="mt-6 text-center">
+      <button class="btn btn-secondary" onclick="clearHistory()">Clear All History</button>
+    </div>
+  `;
+
+  // Attach click handlers safely
+  document.querySelectorAll(".recent-game").forEach((el) => {
+    el.addEventListener("click", () => {
+      const index = el.dataset.index;
+      const game = history[index];
+      showGameDetails(game);
+    });
+  });
 
   // Draw stats chart
   setTimeout(() => {
@@ -809,15 +967,14 @@ function displayStatistics(history) {
       window.statsChartInstance.destroy();
     }
 
-    const isDark =
-      document.documentElement.getAttribute("data-theme") === "dark";
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     const textColor = isDark ? "#94a3b8" : "#64748b";
     const gridColor = isDark ? "#334155" : "#e2e8f0";
 
     window.statsChartInstance = new Chart(ctx, {
       type: "line",
       data: {
-        labels: recentGames.map((g, i) => `Game ${i + 1}`),
+        labels: recentGames.map((_, i) => `Game ${i + 1}`),
         datasets: [
           {
             label: "Accuracy %",
@@ -832,37 +989,88 @@ function displayStatistics(history) {
       options: {
         responsive: true,
         maintainAspectRatio: true,
-        plugins: {
-          legend: {
-            display: false,
-          },
-        },
+        plugins: { legend: { display: false } },
         scales: {
           y: {
             beginAtZero: true,
             max: 100,
             ticks: {
               color: textColor,
-              callback: function (value) {
-                return value + "%";
-              },
+              callback: (value) => value + "%",
             },
-            grid: {
-              color: gridColor,
-            },
+            grid: { color: gridColor },
           },
           x: {
-            ticks: {
-              color: textColor,
-            },
-            grid: {
-              color: gridColor,
-            },
+            ticks: { color: textColor },
+            grid: { color: gridColor },
           },
         },
       },
     });
   }, 100);
+}
+
+function formatGameDate(isoDate) {
+  const date = new Date(isoDate);
+
+  const formattedDate = date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+  const formattedTime = date.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `${formattedDate} ${formattedTime}`;
+}
+
+// Show full results for a specific game
+function showGameDetails(game) {
+  // Hide stats modal
+  hideModal("stats");
+
+  // Set up resultsView
+  document.getElementById("resultsView").style.display = "block";
+  document.getElementById("gameView").style.display = "none";
+  document.getElementById("setupView").style.display = "none";
+  // Populate summary stats
+  const avgAccuracy = game.accuracy;
+  const totalQuestions = game.questionsAnswered;
+  document.getElementById("resultsTitle").textContent =
+    "Game Results - " + formatGameDate(game.date);
+  document.getElementById("finalAccuracy").textContent =
+    avgAccuracy.toFixed(1) + "%";
+  document.getElementById("finalQuestions").textContent = totalQuestions;
+  document.getElementById("finalTime").textContent = game.isFreePlay
+    ? "Free Play"
+    : game.duration + "s";
+  document.getElementById("finalRank").textContent = getRankBadge(avgAccuracy);
+
+  // Populate results table
+  const tbody = document.getElementById("resultsBody");
+  tbody.innerHTML = "";
+  game.results.forEach((result, i) => {
+    const row = document.createElement("tr");
+    row.style.borderBottom = "1px solid var(--border-color)";
+    const badgeClass = getBadgeClass(result.accuracy);
+    row.innerHTML = `
+      <td class="p-3">${i + 1}</td>
+      <td class="p-3">${result.question}</td>
+      <td class="p-3 text-right">${result.userAnswer.toFixed(2)}</td>
+      <td class="p-3 text-right">${result.correctAnswer.toFixed(2)}</td>
+      <td class="p-3 text-center">
+        <span class="stat-badge ${badgeClass}">${result.accuracy.toFixed(
+      1
+    )}%</span>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  displayResultsChart(game.results);
 }
 
 function clearHistory() {

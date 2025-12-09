@@ -43,8 +43,6 @@
   UAH: { code: "ua", name: "Ukrainian Hryvnia", flag: "🇺🇦" },
   PEN: { code: "pe", name: "Peruvian Sol", flag: "🇵🇪" },
   KES: { code: "ke", name: "Kenyan Shilling", flag: "🇰🇪" },
-
-  // ———— Remaining currencies ————
   AFN: { code: "af", name: "Afghan Afghani", flag: "🇦🇫" },
   ALL: { code: "al", name: "Albanian Lek", flag: "🇦🇱" },
   AMD: { code: "am", name: "Armenian Dram", flag: "🇦🇲" },
