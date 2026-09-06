@@ -257,12 +257,6 @@ function initEventListeners() {
     document.getElementById("submitBtn").disabled = !e.target.value.trim();
   });
 
-  document.getElementById("answerInput").addEventListener("keypress", (e) => {
-    if (e.key === "Enter" && !document.getElementById("submitBtn").disabled) {
-      submitAnswer();
-    }
-  });
-
   // Modals
   document
     .getElementById("statsBtn")
